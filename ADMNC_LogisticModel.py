@@ -36,7 +36,14 @@ class ADMNC_LogisticModel:
                  max_iterations=DEFAULT_MAX_ITERATIONS,
                  logistic_lambda=DEFAULT_LOGISTIC_LAMBDA,
                  minibatch_size=DEFAULT_MINIBATCH_SIZE,
-                 first_continuous=0):
+                 first_continuous=0, logistic=None, gmm=None, threshold=-1.0, anomaly_ratio=0.1, max=0, min=0,
+                 _estimator_type="classifier", classes_=None):
+        # TODO los atributos logistic y gmm solo son para que funcione BayesianSearch, hay que buscar otras alternativas
+        # min y max lo mismo, y estimator, y classes
+        self.classes_ = classes_
+        self._estimator_type = _estimator_type
+        self.max = max
+        self.min = min
         self.first_continuous = first_continuous
         self.logistic_lambda = logistic_lambda
         self.max_iterations = max_iterations
@@ -47,14 +54,15 @@ class ADMNC_LogisticModel:
         self.regularization_parameter = regularization_parameter
         self.subspace_dimension = subspace_dimension
         self.minibatch_size = minibatch_size
-        self.logistic = None
-        self.gmm = None
-        self.threshold = -1.0
+        self.logistic = logistic
+        self.gmm = gmm
+        self.threshold = threshold
+        self.anomaly_ratio = anomaly_ratio
 
-    def fit(self, data, anomalyRatio):
+    def fit(self, data, y=None):
 
         sampleElement = data[0]
-        numElems = len(data)
+        numElems = data.shape[0]
         minibatchFraction = self.minibatch_size / numElems
         if minibatchFraction > 1:
             minibatchFraction = 1
@@ -72,17 +80,19 @@ class ADMNC_LogisticModel:
 
         estimators = self.getProbabilityEstimators(data)
 
-        targetSize = int(numElems * anomalyRatio)
+        targetSize = int(numElems * self.anomaly_ratio)
         if targetSize <= 0: targetSize = 1
 
         estimators.sort()
         self.threshold = estimators[targetSize]
+        self.findMinMax(data)
+        self.classes_ = np.array([-1, 1])
 
     def getProbabilityEstimator(self, element):
         gmmEstimator = self.gmm.score([element[self.first_continuous:]])
         logisticEstimator = self.logistic.getProbabilityEstimator(element)
         # DEBUG
-        # print("gmm: " + str(gmmEstimator) + "   logistic: " + str(logisticEstimator))
+        print("gmm: " + str(gmmEstimator) + "   logistic: " + str(logisticEstimator))
         return math.log(logisticEstimator) * gmmEstimator  # TODO el score ya hace log, no hace falta log otra vez?
 
     def getProbabilityEstimators(self, elements):
@@ -138,6 +148,36 @@ class ADMNC_LogisticModel:
         # return the list of names
         return names
 
+    def predict_proba(self, elements):
+        results = np.zeros((elements.shape[0], 2))
+        for i in range(len(elements)):
+            result = self.getProbabilityEstimator(elements[i])
+            interpolation = self.interpolate(result)
+            results[i] = np.array([interpolation, 1 - interpolation])
+        return results
+
+    def findMinMax(self, data):
+        results = self.getProbabilityEstimators(data)
+        self.max = max(results)
+        self.min = min(results)
+
+    def interpolate(self, value):
+        t = (value - self.min) / (self.max - self.min)
+        return t
+
+    def predict(self, elements):
+        result = np.zeros((elements.shape[0]))
+        for i in range(len(elements)):
+            a = self.getProbabilityEstimator(elements[i])
+            if self.getProbabilityEstimator(elements[i]) < self.threshold:
+                result[i] = 1
+            else:
+                result[i] = 0
+        return result
+
+    def decision_function(self, elements):
+        return self.getProbabilityEstimators(elements)
+
 
 def kfold_csr(data, y, k, randomize=False, remove_ones=False):
     # data: una base de datos en formato csr_matrix
@@ -161,15 +201,16 @@ def kfold_csr(data, y, k, randomize=False, remove_ones=False):
         results.append((train_index, test_index))
 
     return results
-if __name__ == '__main__':
 
+
+if __name__ == '__main__':
     admnc = ADMNC_LogisticModel(first_continuous=13, subspace_dimension=2, logistic_lambda=0.1,
-                                regularization_parameter=0.001, learning_rate_start=10,
-                                learning_rate_speed=1, gaussian_num=2, normalizing_radius=10)
+                                regularization_parameter=0.001, learning_rate_start=1,
+                                learning_rate_speed=0.2, gaussian_num=2, normalizing_radius=10, anomaly_ratio=0.2)
     X, y = load_svmlight_file("german_statlog-nd.libsvm")
     #  -k 2 -ll 0.1 -r 0.001 -l0 100 -ls 10 -g 2 -nr 10
-
-    admnc.fit(X.toarray(), 0.2)
+    print(admnc.get_params())
+    admnc.fit(X.toarray())
     folds = kfold_csr(X, y, 5, True, False)
     results = list(map(admnc.isAnomaly, X.toarray()))
     resultsProb = admnc.getProbabilityEstimators(X.toarray())
@@ -177,16 +218,22 @@ if __name__ == '__main__':
     print("\nAUCProb: " + str(roc_auc_score(y, resultsProb)))
 
     space = [
-        Integer(1, 100, prior="uniform", name="subspace_dimension"),
-        Integer(1, 30, prior="uniform", name="learning_rate_start"),
+        Integer(1, 10, prior="uniform", name="subspace_dimension"),
+        # Integer(1, 30, prior="uniform", name="learning_rate_start"),
         Real(10 ** -3, 0.5, prior="uniform", name="logistic_lambda"),
     ]
 
 
     @use_named_args(space)
     def objective(**params):
+        # admnc2 = ADMNC_LogisticModel()
+        # admnc2.set_params(**admnc.get_params())
         admnc.set_params(**params)
-        a = np.mean(cross_val_score(admnc, X, y, cv=folds, n_jobs=-1, scoring="roc_auc"))
+
+        a = np.mean(cross_val_score(admnc, X.toarray(), y, cv=folds, n_jobs=-1, scoring="roc_auc"))
+        print(admnc.get_params())
+        print(admnc.logistic.V)
+        print(admnc.logistic.weights)
         print("AUC: " + str(a))
         return 1 - a
 
@@ -196,10 +243,11 @@ if __name__ == '__main__':
     # search=GridSearchCV(xgb_model, params, scoring="roc_auc", cv=folds, n_jobs=-1)
 
     # search.fit(X, y)
-    res_gp = gp_minimize(objective, space, n_calls=50)
+    # print(admnc.predict(X.toarray()))
+    # print(admnc.predict_proba(X.toarray()))
+    # res_gp = gp_minimize(objective, space, n_calls=50)
 
-    print(str(res_gp.fun))
-
-    print(res_gp)
+    # print(str(res_gp.fun))
+    #
+    # print(res_gp)
     # csv_writer.update_csv(dataset, "XGBoost", metric, 1 - res_gp.fun)
-
