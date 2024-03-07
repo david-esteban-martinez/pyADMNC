@@ -15,7 +15,6 @@ FULLY_CONVERGED_GRADIENTS = [sys.float_info.min, sys.float_info.min, sys.float_i
 class LogisticModel:
     # TODO hacer la separación de parte numerica y continua automaticamente o con una opción si lo tienes precomputado
     def __init__(self, data, numContinuous, element, subspaceDimension, normalizing_radius, lambda_num):
-
         self.enc = OneHotEncoder()
         self.n_features = data.shape[1]
         self.n_continuous = numContinuous
@@ -29,10 +28,10 @@ class LogisticModel:
         self.max_values = np.empty(X1.shape[1])
         elementCat, _ = self._encodeData(element)
         self.numDiscrete = len(elementCat)
-        # self.V = np.random.rand(subspaceDimension, self.n_continuous + 1) - 0.5
-        # self.weights = np.random.rand(subspaceDimension, self.numDiscrete) - 0.5
-        self.V = np.ones((subspaceDimension, self.n_continuous + 1)) - 0.5
-        self.weights = np.ones((subspaceDimension, self.numDiscrete)) - 0.5
+        self.V = np.random.rand(subspaceDimension, self.n_continuous + 1) - 0.5
+        self.weights = np.random.rand(subspaceDimension, self.numDiscrete) - 0.5
+        # self.V = np.ones((subspaceDimension, self.n_continuous + 1)) - 0.5
+        # self.weights = np.ones((subspaceDimension, self.numDiscrete)) - 0.5
         self.regParameterScaleW = 1 / math.sqrt(self.numDiscrete * subspaceDimension)
         for i in range(X1.shape[1]):
             max_value = np.amax(X1[:, i])
@@ -86,7 +85,7 @@ class LogisticModel:
         # TODO hacer oneHot a la parte categorica, pero todo a ceros, únicamente dejando un 1 en un indice random
         # Assign z based on the label
         # El label depende de si en la posición aleatoria (de 0 a len(oneHot)) hay un 1 o no
-        index = 1  # random.randrange(0, len(elemCat))
+        index =random.randrange(0, len(elemCat))
         mask = np.zeros(len(elemCat))
         mask[index] = 1
 
@@ -101,7 +100,7 @@ class LogisticModel:
         w = np.dot(first, second)
         # if w > 3:
         #     w
-        print(w)
+        print("w: "+str(w))
         s = 1.0 / (1.0 + math.exp(z * w / self.lambda_num))  # TODO a veces w es enorme y crashea
         # Return a tuple of two arrays
         a1 = -s * z * (yDisc.transpose() * first.reshape((first.shape[0], 1)))
@@ -145,7 +144,7 @@ class LogisticModel:
             # Finishing condition: gradients are small for several iterations in a row
             # Use a minibatch instead of the whole dataset
             minibatch = data[np.random.choice(data.shape[0], int(len(data) * minibatchFraction), replace=False), :]
-            minibatch=data
+            # minibatch=data
             total = len(minibatch)  # TODO la versión de Scala hace un minibatch de tamaño aproximado, algo random
             while (total <= 0):
                 minibatch = data[np.random.choice(data.shape[0], int(len(data) * minibatchFraction), replace=False), :]
@@ -155,12 +154,17 @@ class LogisticModel:
 
             # Broadcast samples and parallelize on the minibatch
             # val bSample=sc.broadcast(sample)
-            (sumW, sumV) = reduce(self._reduce_func, map(self._map_func, minibatch))
+            a = list(map(self._map_func, minibatch))
+
+            # (sumW, sumV) = reduce(self._reduce_func, map(self._map_func, minibatch))
+            (sumW, sumV) = reduce(self._reduce_func, a)
+            #
+            # print(len(a))
+            # exit()
             sumX = sumW.transpose()
             gradientW = sumW / total
             # gradientX=sumW/total
             # val gradientProgress=Math.abs(sum(gradientWxy))
-            # TODO quizá transpose aquí cambia los resultados
             gradientProgress = sum(map(math.fabs, gradientW.flatten()))
             # gradientProgress2=sum(map(math.fabs,gradientX.flatten()))
             # sum(gradientW.map({x = > Math.abs(x)}))

@@ -76,6 +76,7 @@ class ADMNC_LogisticModel:
 
         self.gmm = GaussianMixture(n_components=self.gaussian_num)
         data_cont = data[:, self.first_continuous:]
+        # self.gmm.
         self.gmm.fit(data_cont)
 
         estimators = self.getProbabilityEstimators(data)
@@ -91,6 +92,8 @@ class ADMNC_LogisticModel:
     def getProbabilityEstimator(self, element):
         gmmEstimator = self.gmm.score([element[self.first_continuous:]])
         logisticEstimator = self.logistic.getProbabilityEstimator(element)
+        # TODO cuando logistic da 0.0, el fit falla (no hay log de 0), en Scala no pasa porque se suma el gmm antes del log
+        # TODO mirar de calcular los centroides del gmm por adelantado con KNN como dicen en el paper original
         # DEBUG
         print("gmm: " + str(gmmEstimator) + "   logistic: " + str(logisticEstimator))
         return math.log(logisticEstimator) * gmmEstimator  # TODO el score ya hace log, no hace falta log otra vez?
@@ -204,19 +207,27 @@ def kfold_csr(data, y, k, randomize=False, remove_ones=False):
 
 
 if __name__ == '__main__':
-    admnc = ADMNC_LogisticModel(first_continuous=13, subspace_dimension=2, logistic_lambda=0.1,
-                                regularization_parameter=0.001, learning_rate_start=1,
-                                learning_rate_speed=0.2, gaussian_num=2, normalizing_radius=10, anomaly_ratio=0.2)
     X, y = load_svmlight_file("german_statlog-nd.libsvm")
-    #  -k 2 -ll 0.1 -r 0.001 -l0 100 -ls 10 -g 2 -nr 10
-    print(admnc.get_params())
-    admnc.fit(X.toarray())
     folds = kfold_csr(X, y, 5, True, False)
-    results = list(map(admnc.isAnomaly, X.toarray()))
-    resultsProb = admnc.getProbabilityEstimators(X.toarray())
-    print("AUC: " + str(roc_auc_score(y, results)))
-    print("\nAUCProb: " + str(roc_auc_score(y, resultsProb)))
+    results=[]
+    for i in range(50):
+        admnc = ADMNC_LogisticModel(first_continuous=13, subspace_dimension=2, logistic_lambda=0.1,
+                                    regularization_parameter=0.001, learning_rate_start=1,
+                                    learning_rate_speed=0.2, gaussian_num=2, normalizing_radius=10, anomaly_ratio=0.2)
+        #  -k 2 -ll 0.1 -r 0.001 -l0 100 -ls 10 -g 2 -nr 10
+        # print(admnc.get_params())
+        admnc.fit(X.toarray())
 
+        # results = list(map(admnc.isAnomaly, X.toarray()))
+
+        resultsProb = admnc.getProbabilityEstimators(X.toarray())
+        result=roc_auc_score(y, resultsProb)
+        results.append(result)
+        # print("AUC: " + str(roc_auc_score(y, results)))
+        print("\nAUCProb: " + str(result))
+    arrayResults=np.array(results)
+    print(arrayResults)
+    print("MEAN AND STD: "+str(arrayResults.mean())+" | "+str(arrayResults.std()))
     space = [
         Integer(1, 10, prior="uniform", name="subspace_dimension"),
         # Integer(1, 30, prior="uniform", name="learning_rate_start"),
@@ -237,7 +248,6 @@ if __name__ == '__main__':
         print("AUC: " + str(a))
         return 1 - a
 
-
     # search = RandomizedSearchCV(xgb_model, param_distributions=params, n_iter=200, cv=folds, verbose=0,
     #                             n_jobs=1, return_train_score=True)
     # search=GridSearchCV(xgb_model, params, scoring="roc_auc", cv=folds, n_jobs=-1)
@@ -246,7 +256,7 @@ if __name__ == '__main__':
     # print(admnc.predict(X.toarray()))
     # print(admnc.predict_proba(X.toarray()))
     # res_gp = gp_minimize(objective, space, n_calls=50)
-
+    #
     # print(str(res_gp.fun))
     #
     # print(res_gp)
