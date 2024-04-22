@@ -36,28 +36,34 @@ class LogisticModel:
         for i in range(X1.shape[1]):
             max_value = np.amax(X1[:, i])
             self.max_values[i] = max_value
-
+        self.trained=False
     def getProbabilityEstimator(self, element):
         elementCat, elementCont = self._encodeData(element)
         x = elementCat.size
         wArray = np.array(self.weights, dtype="float")
-        array = np.zeros(x)
-        for i in range(x):
-            yDisc = [0] * x
-            yDisc[i] = 1
+        # array = np.zeros(x)
+        xCont = np.append(elementCont, [1])
+        first = np.matmul(self.V, xCont)
+        # first=first.reshape(-1,1)
+        # b= np.eye(x)
+        # a = wArray @ np.eye(x)
+        z = np.where(elementCat == 1, 1, -1)
 
-            xCont = np.append(elementCont, [1])
+        w = np.dot(first,wArray)
+        # for i in range(x):
+        #     yDisc = [0] * x
+        #     yDisc[i] = 1
+        #
+        #
+        #     if elementCat[i] == 1:
+        #         z = 1
+        #     else:
+        #         z = -1
+        #     second = np.matmul(wArray, yDisc)
+        #     w2 = np.dot(first, second)
+        p = 1.0 / (1.0 + np.exp(-z * w / self.lambda_num))
 
-            if elementCat[i] == 1:
-                z = 1
-            else:
-                z = -1
-            first = np.matmul(self.V, xCont)
-            second = np.matmul(wArray, yDisc)
-            w = np.dot(first, second)
-            p = 1.0 / (1.0 + math.exp(-z * w / self.lambda_num))
-            array[i] = p
-        return np.multiply.reduce(array)
+        return np.prod(p)
 
     def update(self, gradientW, gradientV, learningRate, regularizationParameter):
         # TODO falta normalizar, quizá hace falta
@@ -100,7 +106,7 @@ class LogisticModel:
         w = np.dot(first, second)
         # if w > 3:
         #     w
-        print("w: "+str(w))
+        # print("w: "+str(w))
         s = 1.0 / (1.0 + math.exp(z * w / self.lambda_num))  # TODO a veces w es enorme y crashea
         # Return a tuple of two arrays
         a1 = -s * z * (yDisc.transpose() * first.reshape((first.shape[0], 1)))
@@ -187,6 +193,7 @@ class LogisticModel:
             i = i + 1
         if (consecutiveNoProgressSteps >= 10):
             self.lastGradientLogs = FULLY_CONVERGED_GRADIENTS
+        self.trained=True
 
     def getProbabilityEstimators(self, elements):
         return list(map(self.getProbabilityEstimator, elements))

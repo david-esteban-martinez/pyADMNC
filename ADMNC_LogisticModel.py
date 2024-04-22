@@ -70,9 +70,18 @@ class ADMNC_LogisticModel:
         self.logistic = LogisticModel(data, data.shape[1] - self.first_continuous,
                                       sampleElement,
                                       self.subspace_dimension, self.normalizing_radius, self.logistic_lambda)
-        self.logistic.trainWithSGD(data, self.max_iterations, minibatchFraction, self.regularization_parameter,
-                                   self.learning_rate_start,
-                                   self.learning_rate_speed)
+        tries = 0
+        while self.logistic.trained is False:
+            try:
+                self.logistic.trainWithSGD(data, self.max_iterations, minibatchFraction, self.regularization_parameter,
+                                           self.learning_rate_start,
+                                           self.learning_rate_speed)
+            except:
+                tries+=1
+                print("Logistic training failed, {tries} times".format(tries=tries))
+                if tries >20:
+                    exit(0)
+
 
         self.gmm = GaussianMixture(n_components=self.gaussian_num)
         data_cont = data[:, self.first_continuous:]
@@ -91,15 +100,22 @@ class ADMNC_LogisticModel:
 
     def getProbabilityEstimator(self, element):
         gmmEstimator = self.gmm.score([element[self.first_continuous:]])
+        # gmmEstimator = 1
+        # logisticEstimator = 1
         logisticEstimator = self.logistic.getProbabilityEstimator(element)
         # TODO cuando logistic da 0.0, el fit falla (no hay log de 0), en Scala no pasa porque se suma el gmm antes del log
         # TODO mirar de calcular los centroides del gmm por adelantado con KNN como dicen en el paper original
         # DEBUG
-        print("gmm: " + str(gmmEstimator) + "   logistic: " + str(logisticEstimator))
+        # print("gmm: " + str(gmmEstimator) + "   logistic: " + str(logisticEstimator))
+        if logisticEstimator == 0:
+            math.log(float.min)
         return math.log(logisticEstimator) * gmmEstimator  # TODO el score ya hace log, no hace falta log otra vez?
 
     def getProbabilityEstimators(self, elements):
-        return list(map(self.getProbabilityEstimator, elements))
+        # logisticEstimators = []
+        # logisticEstimators=self.logistic.getProbabilityEstimators(elements)
+        # gmmEstimators = list(map(lambda e:self.gmm.score([e[self.first_continuous:]]),elements))
+        return np.array(list(map(self.getProbabilityEstimator, elements)))
 
     def getContCat(self, dataset):  # Reordenar dataset internamente para que esté en orden categórico continuo?
         # dataset = np.array(dataset)

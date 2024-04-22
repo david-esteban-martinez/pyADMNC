@@ -5,6 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="3c73e058-da06-4fb5-8d63-a4aa223480d8" name="Changes" comment="Versión determinista, da lo mismo que en Scala en el logístico">
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/pyADMNC.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/pyADMNC.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ADMNC_LogisticModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/ADMNC_LogisticModel.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/LogisticModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/LogisticModel.py" afterDir="false" />
@@ -54,6 +56,7 @@
   <component name="RunManager">
     <configuration name="ADMNC_LogisticModel" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="pyADMNC" />
+      <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
@@ -100,6 +103,9 @@
       <workItem from="1708936757850" duration="13695000" />
       <workItem from="1709110840515" duration="32937000" />
       <workItem from="1709808198682" duration="429000" />
+      <workItem from="1711098768936" duration="3626000" />
+      <workItem from="1713430258598" duration="550000" />
+      <workItem from="1713512568781" duration="1149000" />
     </task>
     <task id="LOCAL-00001" summary="Replicado el modelo ADMNC en Python, además añadidas las funciones set_params, get_params y get_param_names, para que funcione en casos en los que se necesita un modelo de sklearn">
       <created>1709120980004</created>
@@ -147,32 +153,32 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>130</line>
+          <line>136</line>
           <option name="timeStamp" value="49" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>77</line>
+          <line>83</line>
           <option name="timeStamp" value="57" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>78</line>
+          <line>84</line>
           <option name="timeStamp" value="58" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>164</line>
+          <line>170</line>
           <option name="timeStamp" value="75" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>63</line>
+          <line>69</line>
           <option name="timeStamp" value="76" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>161</line>
+          <line>167</line>
           <option name="timeStamp" value="79" />
         </line-breakpoint>
       </breakpoints>
