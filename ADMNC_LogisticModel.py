@@ -1,5 +1,6 @@
 import inspect
 import math
+import sys
 
 import numpy as np
 import sklearn.metrics
@@ -99,23 +100,27 @@ class ADMNC_LogisticModel:
         self.classes_ = np.array([-1, 1])
 
     def getProbabilityEstimator(self, element):
-        gmmEstimator = self.gmm.score([element[self.first_continuous:]])
-        # gmmEstimator = 1
+        # gmmEstimator = self.gmm.score([element[self.first_continuous:]])
+        gmmEstimator = 1
         # logisticEstimator = 1
         logisticEstimator = self.logistic.getProbabilityEstimator(element)
         # TODO cuando logistic da 0.0, el fit falla (no hay log de 0), en Scala no pasa porque se suma el gmm antes del log
         # TODO mirar de calcular los centroides del gmm por adelantado con KNN como dicen en el paper original
         # DEBUG
         # print("gmm: " + str(gmmEstimator) + "   logistic: " + str(logisticEstimator))
+        #TODO Sometimes logisticEstimator is so small it becomes zero, which crashes as log(0) is not defined
         if logisticEstimator == 0:
-            math.log(float.min)
+            math.log(sys.float_info.min)
         return math.log(logisticEstimator) * gmmEstimator  # TODO el score ya hace log, no hace falta log otra vez?
 
     def getProbabilityEstimators(self, elements):
         # logisticEstimators = []
-        # logisticEstimators=self.logistic.getProbabilityEstimators(elements)
+        # a = self.logistic.getProbabilityEstimator(elements[0])
+        logisticEstimators=self.logistic.getProbabilityEstimators(elements)
+        gmmEstimators = np.ones(elements.shape[0])
         # gmmEstimators = list(map(lambda e:self.gmm.score([e[self.first_continuous:]]),elements))
-        return np.array(list(map(self.getProbabilityEstimator, elements)))
+        # result = np.log(logisticEstimators)*gmmEstimators
+        return np.log(logisticEstimators)*gmmEstimators
 
     def getContCat(self, dataset):  # Reordenar dataset internamente para que esté en orden categórico continuo?
         # dataset = np.array(dataset)

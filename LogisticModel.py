@@ -4,6 +4,7 @@ import sys
 from functools import reduce
 
 import numpy as np
+import pandas
 from sklearn.preprocessing import OneHotEncoder
 
 UNCONVERGED_GRADIENTS = [sys.float_info.max, sys.float_info.max, sys.float_info.max, sys.float_info.max,
@@ -15,6 +16,7 @@ FULLY_CONVERGED_GRADIENTS = [sys.float_info.min, sys.float_info.min, sys.float_i
 class LogisticModel:
     # TODO hacer la separación de parte numerica y continua automaticamente o con una opción si lo tienes precomputado
     def __init__(self, data, numContinuous, element, subspaceDimension, normalizing_radius, lambda_num):
+        self.max_values = None
         self.enc = OneHotEncoder()
         self.n_features = data.shape[1]
         self.n_continuous = numContinuous
@@ -25,45 +27,116 @@ class LogisticModel:
         self.lastGradientLogs = UNCONVERGED_GRADIENTS
         X1 = data[:, :(self.n_features - self.n_continuous)]
         self.enc.fit(X1)
-        self.max_values = np.empty(X1.shape[1])
-        elementCat, _ = self._encodeData(element)
+        X2 = self.enc.transform(X1)
+        # X3 = pandas.get_dummies(pandas.DataFrame(X1))
+        # X1 = self.one_hot_encode_matrix(X1)
+        X3 = self.one_hot_encode(X1)
+        # self.max_values = np.empty(X1.shape[1])
+        elementCat2 = self.one_hot_encode_elements2(X1[0])
+        elementCat1 = self.one_hot_encode_elements(X1[0])
+        elementCat, _ = self._encodeData(X1[0])
+        elementCat3 = self.one_hot_encode_elements3(X1[0])
         self.numDiscrete = len(elementCat)
         self.V = np.random.rand(subspaceDimension, self.n_continuous + 1) - 0.5
         self.weights = np.random.rand(subspaceDimension, self.numDiscrete) - 0.5
         # self.V = np.ones((subspaceDimension, self.n_continuous + 1)) - 0.5
         # self.weights = np.ones((subspaceDimension, self.numDiscrete)) - 0.5
         self.regParameterScaleW = 1 / math.sqrt(self.numDiscrete * subspaceDimension)
-        for i in range(X1.shape[1]):
-            max_value = np.amax(X1[:, i])
-            self.max_values[i] = max_value
-        self.trained=False
+        # for i in range(X1.shape[1]):
+        #     max_value = np.amax(X1[:, i])
+        #     self.max_values[i] = max_value
+        self.trained = False
+
     def getProbabilityEstimator(self, element):
-        elementCat, elementCont = self._encodeData(element)
-        x = elementCat.size
+        # elementCat, elementCont = self._encodeData(element)
+        # elementCat = np.array([[1., 0., 0., 0., 0., 0., 0., 0., 1., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1.,
+        #                         0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 1., 0., 1., 0., 0., 0., 0., 0., 1.,
+        #                         0., 0., 1., 0., 0., 1., 0., 0., 0., 1., 0., 1., 1., 0.]])
+        # elementCont = np.array([[0.2059, 0.278, 0.3333, 1., 0.3036, 0.6667, 0.]])
+
+        elementCont = element[-self.n_continuous:]
+        elementCat = element[:self.n_features - self.n_continuous]
+        elementCat = self.one_hot_encode_elements2(elementCat)
         wArray = np.array(self.weights, dtype="float")
-        # array = np.zeros(x)
         xCont = np.append(elementCont, [1])
+
         first = np.matmul(self.V, xCont)
-        # first=first.reshape(-1,1)
-        # b= np.eye(x)
-        # a = wArray @ np.eye(x)
+
         z = np.where(elementCat == 1, 1, -1)
 
-        w = np.dot(first,wArray)
-        # for i in range(x):
-        #     yDisc = [0] * x
-        #     yDisc[i] = 1
-        #
-        #
-        #     if elementCat[i] == 1:
-        #         z = 1
-        #     else:
-        #         z = -1
-        #     second = np.matmul(wArray, yDisc)
-        #     w2 = np.dot(first, second)
+        w = np.dot(first, wArray)
+
         p = 1.0 / (1.0 + np.exp(-z * w / self.lambda_num))
 
         return np.prod(p)
+
+    def one_hot_encode(self, matrix):
+        # Get the maximum value for each column in the matrix
+        matrix = matrix.astype(int)
+        max_values = np.max(matrix, axis=0)
+        # Create a list to hold the one-hot encoded matrices
+        one_hot_encoded = []
+        # Iterate over each column and create a one-hot encoded matrix for it
+        for i, max_val in enumerate(max_values):
+            # Create a one-hot encoded matrix for the current column
+            one_hot_matrix = np.eye(int(max_val) + 1)[matrix[:, i]]
+            # Append the one-hot encoded matrix to the list
+            one_hot_encoded.append(one_hot_matrix)
+        # Concatenate the one-hot encoded matrices horizontally
+        one_hot_encoded_matrix = np.hstack(one_hot_encoded)
+        self.max_values = [int(max_val)+1 for max_val in max_values]
+
+        return one_hot_encoded_matrix
+
+    def one_hot_encode2(self, matrix):
+        # Ensure the matrix is of integer type
+        matrix = matrix.astype(int)
+        # Get the maximum value for each column in the matrix
+        max_values = np.max(matrix, axis=0)
+        # Create the one-hot encoded matrix using advanced indexing
+        one_hot_encoded_matrix = np.eye(max_values.max() + 1)[matrix]
+        # Update max_values in-place
+        self.max_values = max_values + 1
+        # Concatenate the one-hot encoded matrices horizontally
+        one_hot_encoded_matrix = np.concatenate(one_hot_encoded_matrix, axis=1)
+
+        return one_hot_encoded_matrix
+    def one_hot_encode_elements2(self, elements):
+        if len(elements) != len(self.max_values):
+            raise ValueError("Length of elements array and max_values array must be the same.")
+        total_length = sum(max_val for max_val in self.max_values)
+        one_hot_encoded_array = np.zeros((total_length,))
+        col_start = 0
+        for element, max_val in zip(elements, self.max_values):
+            one_hot_encoded_array[col_start + int(element)] = 1
+            col_start += max_val
+        return one_hot_encoded_array
+    def one_hot_encode_elements(self, elements):
+        if len(elements) != len(self.max_values):
+            raise ValueError("Length of elements array and max_values array must be the same.")
+        one_hot_encoded_elements = []
+        for element, max_val in zip(elements, self.max_values):
+            one_hot_encoded_element = np.eye(max_val)[int(element)]
+            one_hot_encoded_elements.append(one_hot_encoded_element)
+        one_hot_encoded_array = np.hstack(one_hot_encoded_elements)
+        return one_hot_encoded_array
+
+
+
+    def one_hot_encode_elements3(self, elements):
+        if len(elements) != len(self.max_values):
+            raise ValueError("Length of elements array and max_values array must be the same.")
+
+        # Preallocate memory for the one-hot encoded array
+        total_length = sum(int(max_val) for max_val in self.max_values)
+        one_hot_encoded_array = np.zeros((total_length,))
+
+        # Convert max_values to integers
+        # Vectorized one-hot encoding
+        col_start = np.cumsum([0] + self.max_values[:-1])
+        one_hot_encoded_array[col_start + elements.astype(int)] = 1
+
+        return one_hot_encoded_array
 
     def update(self, gradientW, gradientV, learningRate, regularizationParameter):
         # TODO falta normalizar, quizá hace falta
@@ -91,7 +164,7 @@ class LogisticModel:
         # TODO hacer oneHot a la parte categorica, pero todo a ceros, únicamente dejando un 1 en un indice random
         # Assign z based on the label
         # El label depende de si en la posición aleatoria (de 0 a len(oneHot)) hay un 1 o no
-        index =random.randrange(0, len(elemCat))
+        index = random.randrange(0, len(elemCat))
         mask = np.zeros(len(elemCat))
         mask[index] = 1
 
@@ -193,7 +266,33 @@ class LogisticModel:
             i = i + 1
         if (consecutiveNoProgressSteps >= 10):
             self.lastGradientLogs = FULLY_CONVERGED_GRADIENTS
-        self.trained=True
+        self.trained = True
 
     def getProbabilityEstimators(self, elements):
-        return list(map(self.getProbabilityEstimator, elements))
+        elementCont = elements[:, -self.n_continuous:]
+        elementCat = elements[:, :self.n_features - self.n_continuous]
+        elementCat=self.one_hot_encode(elementCat)
+        # Convert weights to a NumPy array
+        wArray = np.array(self.weights, dtype="float")
+
+        # Append 1 to the continuous features for the bias term
+        xCont = np.hstack((elementCont, np.ones((elementCont.shape[0], 1))))
+
+        # Vectorized matrix multiplication
+        first = np.dot(xCont, self.V.T)
+
+        # Vectorized element-wise comparison
+        z = np.where(elementCat == 1, 1, -1)
+
+        # Vectorized dot product
+        w = np.dot(first, wArray)
+
+        # Vectorized sigmoid function
+        p = 1.0 / (1.0 + np.exp(-z * w / self.lambda_num))
+
+        # Vectorized product along the rows
+        return np.prod(p, axis=1)
+        # return list(map(self.getProbabilityEstimator, elements))
+
+
+

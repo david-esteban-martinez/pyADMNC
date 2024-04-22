@@ -5,8 +5,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="3c73e058-da06-4fb5-8d63-a4aa223480d8" name="Changes" comment="Versión determinista, da lo mismo que en Scala en el logístico">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/pyADMNC.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/pyADMNC.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ADMNC_LogisticModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/ADMNC_LogisticModel.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/LogisticModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/LogisticModel.py" afterDir="false" />
@@ -153,32 +151,32 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>136</line>
+          <line>195</line>
           <option name="timeStamp" value="49" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>83</line>
+          <line>142</line>
           <option name="timeStamp" value="57" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>84</line>
+          <line>143</line>
           <option name="timeStamp" value="58" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>170</line>
+          <line>229</line>
           <option name="timeStamp" value="75" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>69</line>
+          <line>128</line>
           <option name="timeStamp" value="76" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>167</line>
+          <line>226</line>
           <option name="timeStamp" value="79" />
         </line-breakpoint>
       </breakpoints>
