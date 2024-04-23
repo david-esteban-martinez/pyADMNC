@@ -31,6 +31,7 @@ class LogisticModel:
         # X3 = pandas.get_dummies(pandas.DataFrame(X1))
         # X1 = self.one_hot_encode_matrix(X1)
         X3 = self.one_hot_encode(X1)
+        X4 = self.one_hot_encode2(X1)
         # self.max_values = np.empty(X1.shape[1])
         elementCat2 = self.one_hot_encode_elements2(X1[0])
         elementCat1 = self.one_hot_encode_elements(X1[0])
@@ -89,17 +90,26 @@ class LogisticModel:
         return one_hot_encoded_matrix
 
     def one_hot_encode2(self, matrix):
-        # Ensure the matrix is of integer type
+        # Ensure the matrix is of type int
         matrix = matrix.astype(int)
         # Get the maximum value for each column in the matrix
         max_values = np.max(matrix, axis=0)
-        # Create the one-hot encoded matrix using advanced indexing
-        one_hot_encoded_matrix = np.eye(max_values.max() + 1)[matrix]
-        # Update max_values in-place
-        self.max_values = max_values + 1
-        # Concatenate the one-hot encoded matrices horizontally
-        one_hot_encoded_matrix = np.concatenate(one_hot_encoded_matrix, axis=1)
-
+        # Calculate the total number of one-hot columns needed
+        total_cols = sum(max_val + 1 for max_val in max_values)
+        # Initialize the one-hot encoded matrix with zeros
+        one_hot_encoded_matrix = np.zeros((matrix.shape[0], total_cols), dtype=int)
+        # The starting index for each one-hot encoded column block
+        col_start = 0
+        # Iterate over each column and create a one-hot encoded matrix for it
+        for i, max_val in enumerate(max_values):
+            # The indices where ones should be placed
+            indices = matrix[:, i] + col_start
+            # Place ones in the appropriate positions
+            one_hot_encoded_matrix[np.arange(matrix.shape[0]), indices] = 1
+            # Update the starting index for the next column block
+            col_start += max_val + 1
+        # Store the max_values for potential future use
+        self.max_values = [int(max_val) + 1 for max_val in max_values]
         return one_hot_encoded_matrix
     def one_hot_encode_elements2(self, elements):
         if len(elements) != len(self.max_values):
@@ -271,7 +281,7 @@ class LogisticModel:
     def getProbabilityEstimators(self, elements):
         elementCont = elements[:, -self.n_continuous:]
         elementCat = elements[:, :self.n_features - self.n_continuous]
-        elementCat=self.one_hot_encode(elementCat)
+        elementCat=self.one_hot_encode(elementCat)#TODO comprobar que implementación es más rápida, que mientras se computa Quantus es imposible
         # Convert weights to a NumPy array
         wArray = np.array(self.weights, dtype="float")
 
