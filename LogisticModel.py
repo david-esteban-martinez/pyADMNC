@@ -22,6 +22,7 @@ class LogisticModel:
         self.n_continuous = numContinuous
         self.lambda_num = lambda_num
         self.normalizing_radius = normalizing_radius
+        self.trained = False
 
         self.regParameterScaleV = 1 / math.sqrt((numContinuous + 1) * subspaceDimension)
         self.lastGradientLogs = UNCONVERGED_GRADIENTS
@@ -46,7 +47,6 @@ class LogisticModel:
         # for i in range(X1.shape[1]):
         #     max_value = np.amax(X1[:, i])
         #     self.max_values[i] = max_value
-        self.trained = False
 
     def getProbabilityEstimator(self, element):
         # elementCat, elementCont = self._encodeData(element)
@@ -54,7 +54,9 @@ class LogisticModel:
         #                         0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0., 1., 0., 1., 0., 0., 0., 0., 0., 1.,
         #                         0., 0., 1., 0., 0., 1., 0., 0., 0., 1., 0., 1., 1., 0.]])
         # elementCont = np.array([[0.2059, 0.278, 0.3333, 1., 0.3036, 0.6667, 0.]])
-
+        element = np.reshape(element,(self.n_features,))
+        # if element.shape
+        # a = element[0]
         elementCont = element[-self.n_continuous:]
         elementCat = element[:self.n_features - self.n_continuous]
         elementCat = self.one_hot_encode_elements2(elementCat)
@@ -74,18 +76,20 @@ class LogisticModel:
     def one_hot_encode(self, matrix):
         # Get the maximum value for each column in the matrix
         matrix = matrix.astype(int)
-        max_values = np.max(matrix, axis=0)
+        if self.max_values is None:
+            max_values = np.max(matrix, axis=0)
+            self.max_values = [int(max_val)+1 for max_val in max_values]
         # Create a list to hold the one-hot encoded matrices
         one_hot_encoded = []
         # Iterate over each column and create a one-hot encoded matrix for it
-        for i, max_val in enumerate(max_values):
+        for i, max_val in enumerate(self.max_values):
             # Create a one-hot encoded matrix for the current column
-            one_hot_matrix = np.eye(int(max_val) + 1)[matrix[:, i]]
+            one_hot_matrix = np.eye(max_val)[matrix[:, i]]
             # Append the one-hot encoded matrix to the list
             one_hot_encoded.append(one_hot_matrix)
         # Concatenate the one-hot encoded matrices horizontally
         one_hot_encoded_matrix = np.hstack(one_hot_encoded)
-        self.max_values = [int(max_val)+1 for max_val in max_values]
+
 
         return one_hot_encoded_matrix
 
@@ -93,23 +97,25 @@ class LogisticModel:
         # Ensure the matrix is of type int
         matrix = matrix.astype(int)
         # Get the maximum value for each column in the matrix
-        max_values = np.max(matrix, axis=0)
+        if self.max_values is None:
+            max_values = np.max(matrix, axis=0)
+            self.max_values = [int(max_val) + 1 for max_val in max_values]
         # Calculate the total number of one-hot columns needed
-        total_cols = sum(max_val + 1 for max_val in max_values)
+        total_cols = sum(max_val for max_val in self.max_values)
         # Initialize the one-hot encoded matrix with zeros
         one_hot_encoded_matrix = np.zeros((matrix.shape[0], total_cols), dtype=int)
         # The starting index for each one-hot encoded column block
         col_start = 0
         # Iterate over each column and create a one-hot encoded matrix for it
-        for i, max_val in enumerate(max_values):
+        for i, max_val in enumerate(self.max_values):
             # The indices where ones should be placed
             indices = matrix[:, i] + col_start
             # Place ones in the appropriate positions
             one_hot_encoded_matrix[np.arange(matrix.shape[0]), indices] = 1
             # Update the starting index for the next column block
-            col_start += max_val + 1
+            col_start += max_val
         # Store the max_values for potential future use
-        self.max_values = [int(max_val) + 1 for max_val in max_values]
+
         return one_hot_encoded_matrix
     def one_hot_encode_elements2(self, elements):
         if len(elements) != len(self.max_values):
@@ -195,7 +201,87 @@ class LogisticModel:
         a1 = -s * z * (yDisc.transpose() * first.reshape((first.shape[0], 1)))
         a2 = -s * z * (xCont.transpose() * second.reshape((second.shape[0], 1)))
         return a1, a2
+    def _map_func2(self, elements):
+        # Get the random masked representation element
+        elementCont = elements[:, -self.n_continuous:]
+        elementCat = elements[:, :self.n_features - self.n_continuous]
+        elementCat = self.one_hot_encode(elementCat)
+        # TODO hacer oneHot a la parte categorica, pero todo a ceros, únicamente dejando un 1 en un indice random
+        # Assign z based on the label
+        # El label depende de si en la posición aleatoria (de 0 a len(oneHot)) hay un 1 o no
 
+        wArray = np.array(self.weights, dtype="float")
+        xCont = np.hstack((elementCont, np.ones((elementCont.shape[0], 1))))
+
+        # index = random.randrange(0, len(elementCat))
+        # mask = np.zeros(len(elementCat))
+        # mask[index] = 1
+        #
+        yDisc = np.zeros((elements.shape[0], elementCat.shape[1]))
+
+        # Generate a random row index for each non-zero value
+        random_col_indices = np.random.randint(0, elementCat.shape[1], elements.shape[0])
+
+        # Set a random non-zero value in each row
+        for row, col_index in enumerate(random_col_indices):
+            yDisc[row, col_index] = 1
+
+        z = np.where(elementCat == 1, 1, -1)
+
+        # z = elementCat[index] if elemCat[index] == 1.0 else -1.0
+        # Concatenate e.cPart and 1.0
+        # xCont = np.hstack((elementCont, np.ones((elementCont.shape[0], 1))))
+
+        # xCont = np.concatenate((elementCont, np.array([1.0])))
+        # Assign yDisc to elem.mPart
+        # yDisc = mask
+        # Calculate w
+        first = np.dot(xCont, self.V.T)
+        partial = np.dot(first,yDisc.transpose())
+        second = np.matmul(yDisc,wArray.transpose())
+        w = np.dot(first, wArray)
+        # if w > 3:
+        #     w
+        # print("w: "+str(w))
+
+        s = 1.0 / (1.0 + np.exp(z * w / self.lambda_num))  # TODO a veces w es enorme y crashea
+        # Return a tuple of two arrays
+        a1 = -s * z * (yDisc.transpose() * first)
+        a2 = -s * z * (xCont.transpose() * second)
+        return a1, a2
+
+    def _map_func3(self, elements):
+        # Vectorized operations assume E is a 2D numpy array with each row being an element 'e'
+        elementCont = elements[:, -self.n_continuous:]
+        elementCat = elements[:, :self.n_features - self.n_continuous]
+        elementCat = self.one_hot_encode(elementCat)  # This should be modified to handle multiple elements
+
+        # Generate random indices for each element
+        indices = np.random.randint(0, elementCat.shape[1], size=elementCat.shape[0])
+        mask = np.zeros_like(elementCat)
+        mask[np.arange(elementCat.shape[0]), indices] = 1
+
+        z = np.where(elemCat[np.arange(elemCat.shape[0]), indices] == 1.0, 1.0, -1.0)
+
+        # Concatenate elemCont with 1.0 for each element
+        xCont = np.concatenate((elemCont, np.ones((elemCont.shape[0], 1))), axis=1)
+
+        # Assign yDisc to mask
+        yDisc = mask
+
+        # Calculate w for each element
+        first = np.dot(xCont, self.V.T)
+        second = np.dot(yDisc, self.weights.T)
+        w = np.sum(first * second, axis=1)
+
+        # Compute s for each element
+        s = 1.0 / (1.0 + np.exp(-z * w / self.lambda_num))
+
+        # Return a tuple of two arrays
+        a1 = -s * z[:, np.newaxis] * (yDisc * first[:, :, np.newaxis])
+        a2 = -s * z[:, np.newaxis] * (xCont * second[:, :, np.newaxis])
+
+        return a1, a2
     def _encodeData(self, element):
         elementCont = element[-self.n_continuous:]
         elementCat = element[:self.n_features - self.n_continuous]
@@ -244,7 +330,7 @@ class LogisticModel:
             # Broadcast samples and parallelize on the minibatch
             # val bSample=sc.broadcast(sample)
             a = list(map(self._map_func, minibatch))
-
+            # b = self._map_func2(minibatch)
             # (sumW, sumV) = reduce(self._reduce_func, map(self._map_func, minibatch))
             (sumW, sumV) = reduce(self._reduce_func, a)
             #
@@ -279,29 +365,32 @@ class LogisticModel:
         self.trained = True
 
     def getProbabilityEstimators(self, elements):
-        elementCont = elements[:, -self.n_continuous:]
-        elementCat = elements[:, :self.n_features - self.n_continuous]
-        elementCat=self.one_hot_encode(elementCat)#TODO comprobar que implementación es más rápida, que mientras se computa Quantus es imposible
-        # Convert weights to a NumPy array
-        wArray = np.array(self.weights, dtype="float")
+        if elements.shape[0]==1:
+            return self.getProbabilityEstimator(elements)
+        else:
+            elementCont = elements[:, -self.n_continuous:]
+            elementCat = elements[:, :self.n_features - self.n_continuous]
+            elementCat=self.one_hot_encode(elementCat)
+            # Convert weights to a NumPy array
+            wArray = np.array(self.weights, dtype="float")
 
-        # Append 1 to the continuous features for the bias term
-        xCont = np.hstack((elementCont, np.ones((elementCont.shape[0], 1))))
+            # Append 1 to the continuous features for the bias term
+            xCont = np.hstack((elementCont, np.ones((elementCont.shape[0], 1))))
 
-        # Vectorized matrix multiplication
-        first = np.dot(xCont, self.V.T)
+            # Vectorized matrix multiplication
+            first = np.dot(xCont, self.V.T)
 
-        # Vectorized element-wise comparison
-        z = np.where(elementCat == 1, 1, -1)
+            # Vectorized element-wise comparison
+            z = np.where(elementCat == 1, 1, -1)
 
-        # Vectorized dot product
-        w = np.dot(first, wArray)
+            # Vectorized dot product
+            w = np.dot(first, wArray)
 
-        # Vectorized sigmoid function
-        p = 1.0 / (1.0 + np.exp(-z * w / self.lambda_num))
+            # Vectorized sigmoid function
+            p = 1.0 / (1.0 + np.exp(-z * w / self.lambda_num))
 
-        # Vectorized product along the rows
-        return np.prod(p, axis=1)
+            # Vectorized product along the rows
+            return np.prod(p, axis=1)
         # return list(map(self.getProbabilityEstimator, elements))
 
 

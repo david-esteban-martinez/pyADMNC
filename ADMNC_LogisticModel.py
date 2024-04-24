@@ -77,12 +77,12 @@ class ADMNC_LogisticModel:
                 self.logistic.trainWithSGD(data, self.max_iterations, minibatchFraction, self.regularization_parameter,
                                            self.learning_rate_start,
                                            self.learning_rate_speed)
-            except:
+            except Exception as e:
                 tries+=1
-                print("Logistic training failed, {tries} times".format(tries=tries))
+                print("Logistic training failed, {tries} times, with Exception {e}".format(tries=tries,e=e))
                 if tries >20:
                     exit(0)
-
+        tries=0
 
         self.gmm = GaussianMixture(n_components=self.gaussian_num)
         data_cont = data[:, self.first_continuous:]
@@ -117,8 +117,9 @@ class ADMNC_LogisticModel:
         # logisticEstimators = []
         # a = self.logistic.getProbabilityEstimator(elements[0])
         logisticEstimators=self.logistic.getProbabilityEstimators(elements)
-        gmmEstimators = np.ones(elements.shape[0])
+        # gmmEstimators = np.ones(elements.shape[0])
         # gmmEstimators = list(map(lambda e:self.gmm.score([e[self.first_continuous:]]),elements))
+        gmmEstimators=self.gmm.score_samples(elements[:,self.first_continuous:])
         # result = np.log(logisticEstimators)*gmmEstimators
         return np.log(logisticEstimators)*gmmEstimators
 
