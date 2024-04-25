@@ -84,7 +84,7 @@ class ADMNC_LogisticModel:
                     exit(0)
         tries=0
 
-        self.gmm = GaussianMixture(n_components=self.gaussian_num)
+        self.gmm = GaussianMixture(n_components=self.gaussian_num,covariance_type="diag")
         data_cont = data[:, self.first_continuous:]
         # self.gmm.
         self.gmm.fit(data_cont)
@@ -118,7 +118,7 @@ class ADMNC_LogisticModel:
         # a = self.logistic.getProbabilityEstimator(elements[0])
         logisticEstimators=self.logistic.getProbabilityEstimators(elements)
         # gmmEstimators = np.ones(elements.shape[0])
-        # gmmEstimators = list(map(lambda e:self.gmm.score([e[self.first_continuous:]]),elements))
+        gmmEstimators2 = list(map(lambda e:self.gmm.score([e[self.first_continuous:]]),elements))
         gmmEstimators=self.gmm.score_samples(elements[:,self.first_continuous:])
         # result = np.log(logisticEstimators)*gmmEstimators
         return np.log(logisticEstimators)*gmmEstimators

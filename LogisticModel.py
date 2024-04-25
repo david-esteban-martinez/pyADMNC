@@ -39,8 +39,8 @@ class LogisticModel:
         elementCat, _ = self._encodeData(X1[0])
         elementCat3 = self.one_hot_encode_elements3(X1[0])
         self.numDiscrete = len(elementCat)
-        self.V = np.random.rand(subspaceDimension, self.n_continuous + 1) - 0.5
-        self.weights = np.random.rand(subspaceDimension, self.numDiscrete) - 0.5
+        self.V = np.ones((subspaceDimension, self.n_continuous + 1)) - 0.5
+        self.weights = np.ones((subspaceDimension, self.numDiscrete)) - 0.5
         # self.V = np.ones((subspaceDimension, self.n_continuous + 1)) - 0.5
         # self.weights = np.ones((subspaceDimension, self.numDiscrete)) - 0.5
         self.regParameterScaleW = 1 / math.sqrt(self.numDiscrete * subspaceDimension)
@@ -176,11 +176,15 @@ class LogisticModel:
 
     def _map_func(self, e):
         # Get the random masked representation element
-        elemCat, elemCont = self._encodeData(e)
+        # elemCat, elemCont = self._encodeData(e)
+        elemCont = e[ -self.n_continuous:]
+        elemCat = e[ :self.n_features - self.n_continuous]
+        elemCat = self.one_hot_encode_elements2(elemCat)
         # TODO hacer oneHot a la parte categorica, pero todo a ceros, únicamente dejando un 1 en un indice random
         # Assign z based on the label
         # El label depende de si en la posición aleatoria (de 0 a len(oneHot)) hay un 1 o no
-        index = random.randrange(0, len(elemCat))
+        # index = random.randrange(0, len(elemCat))
+        index=1
         mask = np.zeros(len(elemCat))
         mask[index] = 1
 
@@ -318,13 +322,15 @@ class LogisticModel:
         while ((i < maxIterations) and (consecutiveNoProgressSteps < 10)):
             # Finishing condition: gradients are small for several iterations in a row
             # Use a minibatch instead of the whole dataset
-            minibatch = data[np.random.choice(data.shape[0], int(len(data) * minibatchFraction), replace=False), :]
-            # minibatch=data
+            # minibatch = data[np.random.choice(data.shape[0], int(len(data) * minibatchFraction), replace=False), :]
+            minibatch=data
             total = len(minibatch)  # TODO la versión de Scala hace un minibatch de tamaño aproximado, algo random
             while (total <= 0):
                 minibatch = data[np.random.choice(data.shape[0], int(len(data) * minibatchFraction), replace=False), :]
                 total = len(minibatch)
-            # minibatch = data
+            minibatch = data
+            total = len(minibatch)
+
             learningRate = learningRate0 / (1 + learningRateSpeed * (i - 1))
 
             # Broadcast samples and parallelize on the minibatch
@@ -337,7 +343,7 @@ class LogisticModel:
             # print(len(a))
             # exit()
             sumX = sumW.transpose()
-            gradientW = sumW / total
+            gradientW = sumW / total #TODO comprobar que sigue haciendo lo mismo en formato determinista
             # gradientX=sumW/total
             # val gradientProgress=Math.abs(sum(gradientWxy))
             gradientProgress = sum(map(math.fabs, gradientW.flatten()))
@@ -379,7 +385,9 @@ class LogisticModel:
 
             # Vectorized matrix multiplication
             first = np.dot(xCont, self.V.T)
-
+            a = np.eye(elementCat.shape[0],elementCat.shape[1])
+            second = np.dot(self.weights,elementCat.transpose())
+            # second = np.dot(np.eye(elementCat.shape[0],elementCat.shape[1]).transpose(),self.weights)
             # Vectorized element-wise comparison
             z = np.where(elementCat == 1, 1, -1)
 
