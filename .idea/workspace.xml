@@ -5,9 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="3c73e058-da06-4fb5-8d63-a4aa223480d8" name="Changes" comment="Versión determinista, da lo mismo que en Scala en el logístico">
+      <change afterPath="$PROJECT_DIR$/.idea/encodings.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ADMNC_LogisticModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/ADMNC_LogisticModel.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LogisticModel.py" beforeDir="false" afterPath="$PROJECT_DIR$/LogisticModel.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,12 +31,13 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "Python.ADMNC_LogisticModel.executor": "Debug",
+    "Python.caca.executor": "Run",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "WebServerToolWindowFactoryState": "false",
     "git-widget-placeholder": "master",
-    "last_opened_file_path": "C:/Users/david/PycharmProjects/ZEP-E4",
+    "last_opened_file_path": "C:/Users/DAVID/PycharmProjects/pyADMNC",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -49,10 +49,11 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\DAVID\PycharmProjects\pyADMNC" />
       <recent name="C:\Users\david\PycharmProjects\pyADMNC" />
     </key>
   </component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Python.caca">
     <configuration name="ADMNC_LogisticModel" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="pyADMNC" />
       <option name="ENV_FILES" value="" />
@@ -76,8 +77,32 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="caca" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="pyADMNC" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/caca.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.caca" />
         <item itemvalue="Python.ADMNC_LogisticModel" />
       </list>
     </recent_temporary>
@@ -104,7 +129,7 @@
       <workItem from="1709808198682" duration="429000" />
       <workItem from="1711098768936" duration="3626000" />
       <workItem from="1713430258598" duration="550000" />
-      <workItem from="1713512568781" duration="5613000" />
+      <workItem from="1713512568781" duration="6760000" />
     </task>
     <task id="LOCAL-00001" summary="Replicado el modelo ADMNC en Python, además añadidas las funciones set_params, get_params y get_param_names, para que funcione en casos en los que se necesita un modelo de sklearn">
       <created>1709120980004</created>
@@ -150,31 +175,6 @@
           <line>63</line>
           <option name="timeStamp" value="2" />
         </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>305</line>
-          <option name="timeStamp" value="49" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>172</line>
-          <option name="timeStamp" value="57" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>173</line>
-          <option name="timeStamp" value="58" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>240</line>
-          <option name="timeStamp" value="83" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/LogisticModel.py</url>
-          <line>389</line>
-          <option name="timeStamp" value="84" />
-        </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
         <breakpoint type="python-exception">
@@ -187,6 +187,7 @@
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/pyADMNC$ADMNC.coverage" NAME="ADMNC Coverage Results" MODIFIED="1708680330658" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/pyADMNC$caca.coverage" NAME="caca Coverage Results" MODIFIED="1714379965643" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/pyADMNC$ADMNC_LogisticModel.coverage" NAME="ADMNC_LogisticModel Coverage Results" MODIFIED="1713948344290" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
