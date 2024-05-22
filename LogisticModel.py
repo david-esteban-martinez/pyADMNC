@@ -181,6 +181,7 @@ class LogisticModel:
         # Assign z based on the label
         # El label depende de si en la posición aleatoria (de 0 a len(oneHot)) hay un 1 o no
         index = random.randrange(0, len(elemCat))
+        # index = 1
         mask = np.zeros(len(elemCat))
         mask[index] = 1
 
@@ -201,6 +202,41 @@ class LogisticModel:
         a1 = -s * z * (yDisc.transpose() * first.reshape((first.shape[0], 1)))
         a2 = -s * z * (xCont.transpose() * second.reshape((second.shape[0], 1)))
         return a1, a2
+    def _map_func_batch(self, e_batch):
+        # Encode data
+        elemConts = e_batch[:, -self.n_continuous:]
+        elemCats = e_batch[:, :self.n_features - self.n_continuous]
+        elemCats = self.one_hot_encode(elemCats)
+
+        # Randomly mask elements in elemCats
+        # indices = np.ones(elemCats.shape[0],dtype=int)
+        indices = np.random.randint(0, elemCats.shape[1], size=elemCats.shape[0])
+        masks = np.zeros_like(elemCats)
+        masks[np.arange(masks.shape[0]), indices] = 1
+
+        # Calculate z for each element in the batch
+        zs = np.where(elemCats[np.arange(elemCats.shape[0]), indices] == 1.0, 1.0, -1.0)
+
+        # Append 1.0 to each elemCont
+        xConts = np.concatenate((elemConts, np.ones((elemConts.shape[0], 1))), axis=1)
+
+        # Compute yDisc as masks
+        yDiscs = masks
+
+        # Calculate w for each element in the batch
+        first = np.matmul(xConts, self.V.T)
+        second = np.matmul(yDiscs, self.weights.T)
+        ws = np.einsum('ij,ij->i', first, second)
+
+        # Compute s for each element in the batch
+        s_values = 1.0 / (1.0 + np.exp(zs * ws / self.lambda_num))
+
+        # Calculate a1 and a2 for each element in the batch
+        a1s = -s_values[:, np.newaxis, np.newaxis] * zs[:, np.newaxis, np.newaxis] * (yDiscs[:, :, np.newaxis] * first[:, np.newaxis, :])
+        a2s = -s_values[:, np.newaxis, np.newaxis] * zs[:, np.newaxis, np.newaxis] * (xConts[:, :, np.newaxis] * second[:, np.newaxis, :])
+
+        return a1s, a2s
+
     def _map_func2(self, elements):
         # Get the random masked representation element
         elementCont = elements[:, -self.n_continuous:]
@@ -250,38 +286,7 @@ class LogisticModel:
         a2 = -s * z * (xCont.transpose() * second)
         return a1, a2
 
-    def _map_func3(self, elements):
-        # Vectorized operations assume E is a 2D numpy array with each row being an element 'e'
-        elementCont = elements[:, -self.n_continuous:]
-        elementCat = elements[:, :self.n_features - self.n_continuous]
-        elementCat = self.one_hot_encode(elementCat)  # This should be modified to handle multiple elements
 
-        # Generate random indices for each element
-        indices = np.random.randint(0, elementCat.shape[1], size=elementCat.shape[0])
-        mask = np.zeros_like(elementCat)
-        mask[np.arange(elementCat.shape[0]), indices] = 1
-
-        z = np.where(elemCat[np.arange(elemCat.shape[0]), indices] == 1.0, 1.0, -1.0)
-
-        # Concatenate elemCont with 1.0 for each element
-        xCont = np.concatenate((elemCont, np.ones((elemCont.shape[0], 1))), axis=1)
-
-        # Assign yDisc to mask
-        yDisc = mask
-
-        # Calculate w for each element
-        first = np.dot(xCont, self.V.T)
-        second = np.dot(yDisc, self.weights.T)
-        w = np.sum(first * second, axis=1)
-
-        # Compute s for each element
-        s = 1.0 / (1.0 + np.exp(-z * w / self.lambda_num))
-
-        # Return a tuple of two arrays
-        a1 = -s * z[:, np.newaxis] * (yDisc * first[:, :, np.newaxis])
-        a2 = -s * z[:, np.newaxis] * (xCont * second[:, :, np.newaxis])
-
-        return a1, a2
     def _encodeData(self, element):
         elementCont = element[-self.n_continuous:]
         elementCat = element[:self.n_features - self.n_continuous]
@@ -306,7 +311,11 @@ class LogisticModel:
     def _reduce_func(self, e1, e2):
         # Return a tuple of two arrays
         return e1[0] + e2[0], e1[1] + e2[1]
-
+    def _reduce_func2(self, e1, e2):
+        # Sum the arrays in the tuples element-wise
+        a1_sum = np.sum(e1, axis=0)
+        a2_sum = np.sum(e2, axis=0)
+        return a1_sum, a2_sum
     def trainWithSGD(self, data, maxIterations, minibatchFraction,
                      regParameter, learningRate0, learningRateSpeed):
 
@@ -329,14 +338,20 @@ class LogisticModel:
 
             # Broadcast samples and parallelize on the minibatch
             # val bSample=sc.broadcast(sample)
-            a = list(map(self._map_func, minibatch))
+            a1 = self._map_func_batch(minibatch)
+            # a2 = list(map(self._map_func, minibatch))
             # b = self._map_func2(minibatch)
+
             # (sumW, sumV) = reduce(self._reduce_func, map(self._map_func, minibatch))
-            (sumW, sumV) = reduce(self._reduce_func, a)
+            # (sumW, sumV) = reduce(self._reduce_func, a2)
             #
+            (sumW, sumV) = self._reduce_func2(a1[0],a1[1])
+            sumW=sumW.transpose()
+            sumV=sumV.transpose()
+
             # print(len(a))
             # exit()
-            sumX = sumW.transpose()
+            # sumX = sumW.transpose()
             gradientW = sumW / total
             # gradientX=sumW/total
             # val gradientProgress=Math.abs(sum(gradientWxy))

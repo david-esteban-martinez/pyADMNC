@@ -1,6 +1,7 @@
 import inspect
 import math
 import sys
+import time
 
 import numpy as np
 import sklearn.metrics
@@ -95,7 +96,7 @@ class ADMNC_LogisticModel:
         if targetSize <= 0: targetSize = 1
 
         estimators.sort()
-        self.threshold = estimators[targetSize]
+        self.threshold = estimators[numElems-targetSize]
         self.findMinMax(data)
         self.classes_ = np.array([-1, 1])
 
@@ -117,21 +118,23 @@ class ADMNC_LogisticModel:
         # logisticEstimators = []
         # a = self.logistic.getProbabilityEstimator(elements[0])
         logisticEstimators=self.logistic.getProbabilityEstimators(elements)
+        logisticEstimators=np.log(logisticEstimators)
         # gmmEstimators = np.ones(elements.shape[0])
         # gmmEstimators = list(map(lambda e:self.gmm.score([e[self.first_continuous:]]),elements))
         gmmEstimators=self.gmm.score_samples(elements[:,self.first_continuous:])
         # result = np.log(logisticEstimators)*gmmEstimators
-        return np.log(logisticEstimators)*gmmEstimators
+        # print(logisticEstimators)
+
+        return logisticEstimators*gmmEstimators
 
     def getContCat(self, dataset):  # Reordenar dataset internamente para que esté en orden categórico continuo?
         # dataset = np.array(dataset)
         df = pd.DataFrame(dataset)
         a = df._get_numeric_data()
         # b = dataset.select_dtypes(exclude=[np.number])
-        a
 
-    def isAnomaly(self, element):
-        return self.getProbabilityEstimator(element) < self.threshold
+    def isAnomaly(self, elements):
+        return self.getProbabilityEstimators(elements) > self.threshold
 
     # set_params: a function that sets the parameters of the model
     def set_params(self, **params):
@@ -229,24 +232,32 @@ def kfold_csr(data, y, k, randomize=False, remove_ones=False):
 
 
 if __name__ == '__main__':
-    X, y = load_svmlight_file("german_statlog-nd.libsvm")
-    folds = kfold_csr(X, y, 5, True, False)
+    # X, y = load_svmlight_file("vehicle_claims_10k.libsvm")
+    df = pd.read_csv("reduced_data_movie_0.03_4_0.4_0.3_random.csv")
+    X = df.iloc[:, 1:].values  # All columns except the last one
+    y = df.iloc[:, 0].values
+    # folds = kfold_csr(X, y, 5, True, False)
     results=[]
+    admnc = ADMNC_LogisticModel(first_continuous=13, subspace_dimension=2, logistic_lambda=0.1,
+                                regularization_parameter=0.001, learning_rate_start=1,
+                                learning_rate_speed=0.2, gaussian_num=2, normalizing_radius=10, anomaly_ratio=0.03)
+    #  -k 2 -ll 0.1 -r 0.001 -l0 100 -ls 10 -g 2 -nr 10
+    # print(admnc.get_params())
+    admnc.fit(X)
+    start_time = time.time()
     for i in range(50):
-        admnc = ADMNC_LogisticModel(first_continuous=13, subspace_dimension=2, logistic_lambda=0.1,
-                                    regularization_parameter=0.001, learning_rate_start=1,
-                                    learning_rate_speed=0.2, gaussian_num=2, normalizing_radius=10, anomaly_ratio=0.2)
-        #  -k 2 -ll 0.1 -r 0.001 -l0 100 -ls 10 -g 2 -nr 10
-        # print(admnc.get_params())
-        admnc.fit(X.toarray())
 
-        # results = list(map(admnc.isAnomaly, X.toarray()))
 
-        resultsProb = admnc.getProbabilityEstimators(X.toarray())
+        # results = list(map(admnc.isAnomaly, X))\\TODO hacer que funcione para 1 elemento
+        # resultsBools= admnc.isAnomaly(X)
+        resultsProb = admnc.getProbabilityEstimators(X)
         result=roc_auc_score(y, resultsProb)
         results.append(result)
-        # print("AUC: " + str(roc_auc_score(y, results)))
+        # print("AUC: " + str(roc_auc_score(y, resultsBools)))
         print("\nAUCProb: " + str(result))
+    end_time = time.time()
+    duration = end_time - start_time
+    print(f"TIME: {duration}")
     arrayResults=np.array(results)
     print(arrayResults)
     print("MEAN AND STD: "+str(arrayResults.mean())+" | "+str(arrayResults.std()))
