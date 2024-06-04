@@ -4,16 +4,22 @@ import sys
 import time
 
 import numpy as np
+import shap as shap
 import sklearn.metrics
 from sklearn.datasets import load_svmlight_file
-from sklearn.metrics import roc_auc_score
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_selection import VarianceThreshold, mutual_info_classif
+from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score, confusion_matrix, \
+    classification_report
 from sklearn.mixture import GaussianMixture
-from sklearn.model_selection import cross_val_score, KFold
+from sklearn.model_selection import cross_val_score, KFold, train_test_split
 from skopt.space import Integer, Real
 from skopt.utils import use_named_args
 
 from LogisticModel import LogisticModel
 import pandas as pd
+import GMM
+import GMM2
 from skopt import gp_minimize
 
 
@@ -61,6 +67,7 @@ class ADMNC_LogisticModel:
         self.threshold = threshold
         self.anomaly_ratio = anomaly_ratio
 
+
     def fit(self, data, y=None):
 
         sampleElement = data[0]
@@ -79,15 +86,14 @@ class ADMNC_LogisticModel:
                                            self.learning_rate_start,
                                            self.learning_rate_speed)
             except Exception as e:
-                tries+=1
-                print("Logistic training failed, {tries} times, with Exception {e}".format(tries=tries,e=e))
-                if tries >20:
+                tries += 1
+                print("Logistic training failed, {tries} times, with Exception {e}".format(tries=tries, e=e))
+                if tries > 20:
                     exit(0)
-        tries=0
-
-        self.gmm = GaussianMixture(n_components=self.gaussian_num)
+        #Para cambiar entre GMM custom y GMM de sklearn
+        self.gmm = GMM2.GaussianMixtureModel(n_components=self.gaussian_num)
+        # self.gmm = GaussianMixture(n_components=self.gaussian_num)
         data_cont = data[:, self.first_continuous:]
-        # self.gmm.
         self.gmm.fit(data_cont)
 
         estimators = self.getProbabilityEstimators(data)
@@ -96,36 +102,38 @@ class ADMNC_LogisticModel:
         if targetSize <= 0: targetSize = 1
 
         estimators.sort()
-        self.threshold = estimators[numElems-targetSize]
+        self.threshold = estimators[numElems - targetSize]
         self.findMinMax(data)
         self.classes_ = np.array([-1, 1])
-
+    #Esta función actualmente no se usa ya que la versión para varios elementos funciona con uno
     def getProbabilityEstimator(self, element):
-        # gmmEstimator = self.gmm.score([element[self.first_continuous:]])
-        gmmEstimator = 1
+        gmmEstimator = self.gmm.predict_proba([element[self.first_continuous:]])
+        # gmmEstimator = 1
         # logisticEstimator = 1
         logisticEstimator = self.logistic.getProbabilityEstimator(element)
         # TODO cuando logistic da 0.0, el fit falla (no hay log de 0), en Scala no pasa porque se suma el gmm antes del log
         # TODO mirar de calcular los centroides del gmm por adelantado con KNN como dicen en el paper original
         # DEBUG
         # print("gmm: " + str(gmmEstimator) + "   logistic: " + str(logisticEstimator))
-        #TODO Sometimes logisticEstimator is so small it becomes zero, which crashes as log(0) is not defined
+        # TODO Sometimes logisticEstimator is so small it becomes zero, which crashes as log(0) is not defined
         if logisticEstimator == 0:
             math.log(sys.float_info.min)
         return math.log(logisticEstimator) * gmmEstimator  # TODO el score ya hace log, no hace falta log otra vez?
 
     def getProbabilityEstimators(self, elements):
-        # logisticEstimators = []
-        # a = self.logistic.getProbabilityEstimator(elements[0])
-        logisticEstimators=self.logistic.getProbabilityEstimators(elements)
-        logisticEstimators=np.log(logisticEstimators)
+
+
+        logisticEstimators = self.logistic.getProbabilityEstimators(elements)
+        logisticEstimators = np.log(logisticEstimators)
+        # logisticEstimators=np.ones(elements.shape[0])*-1
         # gmmEstimators = np.ones(elements.shape[0])
         # gmmEstimators = list(map(lambda e:self.gmm.score([e[self.first_continuous:]]),elements))
-        gmmEstimators=self.gmm.score_samples(elements[:,self.first_continuous:])
+        # gmmEstimators = self.gmm.score_samples(elements)
+        gmmEstimators = self.gmm.predict_proba(elements)
         # result = np.log(logisticEstimators)*gmmEstimators
         # print(logisticEstimators)
 
-        return logisticEstimators*gmmEstimators
+        return logisticEstimators * gmmEstimators
 
     def getContCat(self, dataset):  # Reordenar dataset internamente para que esté en orden categórico continuo?
         # dataset = np.array(dataset)
@@ -177,7 +185,8 @@ class ADMNC_LogisticModel:
         return names
 
     def predict_proba(self, elements):
-        results = np.zeros((elements.shape[0], 2))
+        return self.getProbabilityEstimators(elements)
+        results = np.zeros((elements.shape[0], 2))  # TODO
         for i in range(len(elements)):
             result = self.getProbabilityEstimator(elements[i])
             interpolation = self.interpolate(result)
@@ -194,17 +203,40 @@ class ADMNC_LogisticModel:
         return t
 
     def predict(self, elements):
-        result = np.zeros((elements.shape[0]))
-        for i in range(len(elements)):
-            a = self.getProbabilityEstimator(elements[i])
-            if self.getProbabilityEstimator(elements[i]) < self.threshold:
-                result[i] = 1
-            else:
-                result[i] = 0
-        return result
+        return self.getProbabilityEstimators(elements) > self.threshold
+
+        # for i in range(len(elements)):
+        #     # a = self.getProbabilityEstimator(elements[i])
+        #     if self.getProbabilityEstimators(elements[i]) < self.threshold:
+        #         result[i] = 1
+        #     else:
+        #         result[i] = 0
+        # return result
 
     def decision_function(self, elements):
         return self.getProbabilityEstimators(elements)
+
+    def feature_selection_before_encoding(self, elements, target, n_features, n_continuous):
+        # Assuming `elements` includes both continuous and categorical features
+        elementCont = elements[:, -n_continuous:]
+        elementCat = elements[:, :n_features - n_continuous]
+
+        # Variance thresholding
+        self.variance_threshold.fit(elementCont)
+        elementCont = self.variance_threshold.transform(elementCont)
+
+        # Model-based feature selection for continuous features
+        self.model_based_selector.fit(elementCont, target)
+        cont_importances = self.model_based_selector.feature_importances_
+        cont_selected_indices = np.argsort(cont_importances)[::-1][:n_continuous]
+        elementCont = elementCont[:, cont_selected_indices]
+
+        # Use mutual information for categorical features
+        mutual_info = mutual_info_classif(elementCat, target, discrete_features=True)
+        cat_selected_indices = np.argsort(mutual_info)[::-1][:n_features - n_continuous]
+        elementCat = elementCat[:, cat_selected_indices]
+
+        return np.hstack((elementCat, elementCont))
 
 
 def kfold_csr(data, y, k, randomize=False, remove_ones=False):
@@ -214,7 +246,7 @@ def kfold_csr(data, y, k, randomize=False, remove_ones=False):
     # remove_ones: un booleano que indica si queremos eliminar las filas con etiqueta 1 del conjunto de entrenamiento
     # Devuelve: una lista de tuplas, cada una con dos arrays de índices para el conjunto de entrenamiento y el de prueba
 
-    data = data.toarray()
+    # data = data.toarray()
 
     labels = y
 
@@ -232,39 +264,86 @@ def kfold_csr(data, y, k, randomize=False, remove_ones=False):
 
 
 if __name__ == '__main__':
-    # X, y = load_svmlight_file("vehicle_claims_10k.libsvm")
-    df = pd.read_csv("reduced_data_movie_0.03_4_0.4_0.3_random.csv")
-    X = df.iloc[:, 1:].values  # All columns except the last one
-    y = df.iloc[:, 0].values
-    # folds = kfold_csr(X, y, 5, True, False)
-    results=[]
-    admnc = ADMNC_LogisticModel(first_continuous=13, subspace_dimension=2, logistic_lambda=0.1,
-                                regularization_parameter=0.001, learning_rate_start=1,
-                                learning_rate_speed=0.2, gaussian_num=2, normalizing_radius=10, anomaly_ratio=0.03)
-    #  -k 2 -ll 0.1 -r 0.001 -l0 100 -ls 10 -g 2 -nr 10
-    # print(admnc.get_params())
-    admnc.fit(X)
+    X, y = load_svmlight_file("reduced_data_movie_0.03_4_0.4_0.3_random.libsvm")
+
+    X = X.toarray()
+
+    folds = kfold_csr(X, y, 5, True, False)
+    results = []
+    # np.seterr(all='raise')
+
+    # X[:, 13:] += 0.1
     start_time = time.time()
-    for i in range(50):
-
-
-        # results = list(map(admnc.isAnomaly, X))\\TODO hacer que funcione para 1 elemento
-        # resultsBools= admnc.isAnomaly(X)
-        resultsProb = admnc.getProbabilityEstimators(X)
-        result=roc_auc_score(y, resultsProb)
+    for i in range(5):
+        admnc = ADMNC_LogisticModel(first_continuous=19, subspace_dimension=2, logistic_lambda=0.1,
+                                    regularization_parameter=0.001, learning_rate_start=1,
+                                    learning_rate_speed=0.2, gaussian_num=2, normalizing_radius=10, anomaly_ratio=0.2)
+        # X=admnc.feature_selection_before_encoding(X,y,X.shape[0],14)
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.3, random_state=42)
+        X_train = X_train[y_train[:] != 1]
+        y_train = y_train[y_train[:] != 1]
+        # print(admnc.get_params())
+        admnc.fit(X_train)
+        resultsBools = admnc.isAnomaly(X_test)
+        resultsProb = admnc.getProbabilityEstimators(X_test)
+        result = roc_auc_score(y_test, resultsProb)
         results.append(result)
-        # print("AUC: " + str(roc_auc_score(y, resultsBools)))
+        print("AUC: " + str(roc_auc_score(y_test, resultsBools)))
         print("\nAUCProb: " + str(result))
+        # precision = precision_score(y_test, resultsBools)
+        # recall = recall_score(y_test, resultsBools)
+        # f1 = f1_score(y_test, resultsBools)
+        # # roc_auc = roc_auc_score(y_test, y_proba)
+        # conf_matrix = confusion_matrix(y_test, resultsBools)
+        #
+        # # Printing the results
+        # print("Precision:", precision)
+        # print("Recall:", recall)
+        # print("F1-Score:", f1)
+        # # print("ROC AUC:", roc_auc)
+        # print("Confusion Matrix:\n", conf_matrix)
+        # print("Classification Report:\n", classification_report(y_test, resultsBools))
     end_time = time.time()
+    feature_names = ["No_gender", "Action", "Adventure",
+                     "Animation", "Children's", "Comedy",
+                     "Crime",
+                     "Documentary", "Drama", "Fantasy",
+                     "Film-Noir", "Horror", "IMAX",
+                     "Musical", "Mystery",
+                     "Romance", "Sci-fi",
+                     "Thriller", "War",
+                     "Western",
+                     "User", "Timestamp", "Rating"]
+    explainer2 = shap.SamplingExplainer(admnc.getProbabilityEstimators, X_test,
+                                        feature_names=feature_names, )
+    # explainer2.explain(X_test[0])
+    shap_values = explainer2(X_test[0])
+    shap_values.feature_names = ["No_gender", "Action", "Adventure",
+                                 "Animation", "Children's", "Comedy",
+                                 "Crime",
+                                 "Documentary", "Drama", "Fantasy",
+                                 "Film-Noir", "Horror", "IMAX",
+                                 "Musical", "Mystery",
+                                 "Romance", "Sci-fi",
+                                 "Thriller", "War",
+                                 "Western",
+                                 "User", "Timestamp", "Rating"]
+    print(X_test[0])
+    waterfall = shap.plots.waterfall(shap_values, max_display=14, show=True)
+    # waterfall.
     duration = end_time - start_time
     print(f"TIME: {duration}")
-    arrayResults=np.array(results)
+    arrayResults = np.array(results)
     print(arrayResults)
-    print("MEAN AND STD: "+str(arrayResults.mean())+" | "+str(arrayResults.std()))
+    print("MEAN AND STD: " + str(arrayResults.mean()) + " | " + str(arrayResults.std()))
     space = [
         Integer(1, 10, prior="uniform", name="subspace_dimension"),
-        # Integer(1, 30, prior="uniform", name="learning_rate_start"),
-        Real(10 ** -3, 0.5, prior="uniform", name="logistic_lambda"),
+        Integer(1, 10, prior="uniform", name="learning_rate_start"),
+        Real(10 ** -2, 0.5, prior="uniform", name="logistic_lambda"),
+        Real(10 ** -3, 0.5, prior="uniform", name="regularization_parameter"),
+        Integer(1, 10, prior="uniform", name="gaussian_num"),
+        Real(2, 30, prior="uniform", name="normalizing_radius")
     ]
 
 
@@ -274,12 +353,13 @@ if __name__ == '__main__':
         # admnc2.set_params(**admnc.get_params())
         admnc.set_params(**params)
 
-        a = np.mean(cross_val_score(admnc, X.toarray(), y, cv=folds, n_jobs=-1, scoring="roc_auc"))
-        print(admnc.get_params())
-        print(admnc.logistic.V)
-        print(admnc.logistic.weights)
+        a = np.mean(cross_val_score(admnc, X, y, cv=folds, n_jobs=-1, scoring="roc_auc"))
+        # print(admnc.get_params())
+        # print(admnc.logistic.V)
+        # print(admnc.logistic.weights)
         print("AUC: " + str(a))
         return 1 - a
+
 
     # search = RandomizedSearchCV(xgb_model, param_distributions=params, n_iter=200, cv=folds, verbose=0,
     #                             n_jobs=1, return_train_score=True)
@@ -288,9 +368,9 @@ if __name__ == '__main__':
     # search.fit(X, y)
     # print(admnc.predict(X.toarray()))
     # print(admnc.predict_proba(X.toarray()))
-    # res_gp = gp_minimize(objective, space, n_calls=50)
+    res_gp = gp_minimize(objective, space, n_calls=50)
     #
-    # print(str(res_gp.fun))
+    print(str(res_gp.fun))
     #
-    # print(res_gp)
+    print(res_gp)
     # csv_writer.update_csv(dataset, "XGBoost", metric, 1 - res_gp.fun)

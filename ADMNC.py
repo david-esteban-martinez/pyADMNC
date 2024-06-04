@@ -107,5 +107,6 @@ class ADMNC:
 
 
 if __name__ == '__main__':
+    print("Este modelo no se usa, utiliza directamente ADMNC_LogisticModel")
     admnc = ADMNC()
     admnc.fit()
