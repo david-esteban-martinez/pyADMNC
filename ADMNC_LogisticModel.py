@@ -45,7 +45,7 @@ class ADMNC_LogisticModel:
                  logistic_lambda=DEFAULT_LOGISTIC_LAMBDA,
                  minibatch_size=DEFAULT_MINIBATCH_SIZE,
                  first_continuous=0, logistic=None, gmm=None, threshold=-1.0, anomaly_ratio=0.1, max=0, min=0,
-                 _estimator_type="classifier", classes_=None):
+                 _estimator_type="classifier", classes_=None,data2=None):
         # TODO los atributos logistic y gmm solo son para que funcione BayesianSearch, hay que buscar otras alternativas
         # min y max lo mismo, y estimator, y classes
         self.classes_ = classes_
@@ -66,9 +66,10 @@ class ADMNC_LogisticModel:
         self.gmm = gmm
         self.threshold = threshold
         self.anomaly_ratio = anomaly_ratio
+        self.data2 = data2
 
 
-    def fit(self, data, y=None):
+    def fit(self, data,y=None):
 
         sampleElement = data[0]
         numElems = data.shape[0]
@@ -78,7 +79,7 @@ class ADMNC_LogisticModel:
 
         self.logistic = LogisticModel(data, data.shape[1] - self.first_continuous,
                                       sampleElement,
-                                      self.subspace_dimension, self.normalizing_radius, self.logistic_lambda)
+                                      self.subspace_dimension, self.normalizing_radius, self.logistic_lambda,self.data2)
         tries = 0
         while self.logistic.trained is False:
             try:
@@ -129,7 +130,7 @@ class ADMNC_LogisticModel:
         # gmmEstimators = np.ones(elements.shape[0])
         # gmmEstimators = list(map(lambda e:self.gmm.score([e[self.first_continuous:]]),elements))
         # gmmEstimators = self.gmm.score_samples(elements)
-        gmmEstimators = self.gmm.predict_proba(elements)
+        gmmEstimators = self.gmm.predict_proba(elements[:, self.first_continuous:])
         # result = np.log(logisticEstimators)*gmmEstimators
         # print(logisticEstimators)
 
@@ -265,13 +266,17 @@ def kfold_csr(data, y, k, randomize=False, remove_ones=False):
 
 if __name__ == '__main__':
     X, y = load_svmlight_file("reduced_data_movie_0.03_4_0.4_0.3_random.libsvm")
-
+    # df = pd.read_csv("german_statlog-nd.libsvm")
+    # X = df.iloc[:, 1:].values  # All columns except the last one
+    # y = df.iloc[:, 0].values
     X = X.toarray()
 
     folds = kfold_csr(X, y, 5, True, False)
     results = []
     # np.seterr(all='raise')
-
+    # for i in range(5):
+    #     X = np.concatenate((X, X), axis=0)
+    #     y = np.concatenate((y, y), axis=0)
     # X[:, 13:] += 0.1
     start_time = time.time()
     for i in range(5):
@@ -279,12 +284,14 @@ if __name__ == '__main__':
                                     regularization_parameter=0.001, learning_rate_start=1,
                                     learning_rate_speed=0.2, gaussian_num=2, normalizing_radius=10, anomaly_ratio=0.2)
         # X=admnc.feature_selection_before_encoding(X,y,X.shape[0],14)
+        admnc.data2=X
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.3, random_state=42)
+            X, y, test_size=0.3)
         X_train = X_train[y_train[:] != 1]
         y_train = y_train[y_train[:] != 1]
         # print(admnc.get_params())
         admnc.fit(X_train)
+
         resultsBools = admnc.isAnomaly(X_test)
         resultsProb = admnc.getProbabilityEstimators(X_test)
         result = roc_auc_score(y_test, resultsProb)
@@ -305,38 +312,40 @@ if __name__ == '__main__':
         # print("Confusion Matrix:\n", conf_matrix)
         # print("Classification Report:\n", classification_report(y_test, resultsBools))
     end_time = time.time()
-    feature_names = ["No_gender", "Action", "Adventure",
-                     "Animation", "Children's", "Comedy",
-                     "Crime",
-                     "Documentary", "Drama", "Fantasy",
-                     "Film-Noir", "Horror", "IMAX",
-                     "Musical", "Mystery",
-                     "Romance", "Sci-fi",
-                     "Thriller", "War",
-                     "Western",
-                     "User", "Timestamp", "Rating"]
-    explainer2 = shap.SamplingExplainer(admnc.getProbabilityEstimators, X_test,
-                                        feature_names=feature_names, )
-    # explainer2.explain(X_test[0])
-    shap_values = explainer2(X_test[0])
-    shap_values.feature_names = ["No_gender", "Action", "Adventure",
-                                 "Animation", "Children's", "Comedy",
-                                 "Crime",
-                                 "Documentary", "Drama", "Fantasy",
-                                 "Film-Noir", "Horror", "IMAX",
-                                 "Musical", "Mystery",
-                                 "Romance", "Sci-fi",
-                                 "Thriller", "War",
-                                 "Western",
-                                 "User", "Timestamp", "Rating"]
-    print(X_test[0])
-    waterfall = shap.plots.waterfall(shap_values, max_display=14, show=True)
-    # waterfall.
     duration = end_time - start_time
     print(f"TIME: {duration}")
     arrayResults = np.array(results)
     print(arrayResults)
     print("MEAN AND STD: " + str(arrayResults.mean()) + " | " + str(arrayResults.std()))
+    # exit()
+    # feature_names = ["No_gender", "Action", "Adventure",
+    #                  "Animation", "Children's", "Comedy",
+    #                  "Crime",
+    #                  "Documentary", "Drama", "Fantasy",
+    #                  "Film-Noir", "Horror", "IMAX",
+    #                  "Musical", "Mystery",
+    #                  "Romance", "Sci-fi",
+    #                  "Thriller", "War",
+    #                  "Western",
+    #                  "User", "Timestamp", "Rating"]
+    # explainer2 = shap.SamplingExplainer(admnc.getProbabilityEstimators, X_test,
+    #                                     feature_names=feature_names, )
+    # # explainer2.explain(X_test[0])
+    # shap_values = explainer2(X_test[0])
+    # shap_values.feature_names = ["No_gender", "Action", "Adventure",
+    #                              "Animation", "Children's", "Comedy",
+    #                              "Crime",
+    #                              "Documentary", "Drama", "Fantasy",
+    #                              "Film-Noir", "Horror", "IMAX",
+    #                              "Musical", "Mystery",
+    #                              "Romance", "Sci-fi",
+    #                              "Thriller", "War",
+    #                              "Western",
+    #                              "User", "Timestamp", "Rating"]
+    # print(X_test[0])
+    # waterfall = shap.plots.waterfall(shap_values, max_display=14, show=True)
+    # waterfall.
+
     space = [
         Integer(1, 10, prior="uniform", name="subspace_dimension"),
         Integer(1, 10, prior="uniform", name="learning_rate_start"),
@@ -352,7 +361,7 @@ if __name__ == '__main__':
         # admnc2 = ADMNC_LogisticModel()
         # admnc2.set_params(**admnc.get_params())
         admnc.set_params(**params)
-
+        admnc.data2=X
         a = np.mean(cross_val_score(admnc, X, y, cv=folds, n_jobs=-1, scoring="roc_auc"))
         # print(admnc.get_params())
         # print(admnc.logistic.V)

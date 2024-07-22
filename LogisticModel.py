@@ -12,7 +12,7 @@ FULLY_CONVERGED_GRADIENTS = [sys.float_info.min, sys.float_info.min, sys.float_i
 
 class LogisticModel:
     # TODO hacer la separación de parte numerica y continua automaticamente o con una opción si lo tienes precomputado
-    def __init__(self, data, numContinuous, element, subspaceDimension, normalizing_radius, lambda_num):
+    def __init__(self, data, numContinuous, element, subspaceDimension, normalizing_radius, lambda_num, data2):
         self.max_values = None
         self.n_features = data.shape[1]
         self.n_continuous = numContinuous
@@ -22,7 +22,7 @@ class LogisticModel:
 
         self.regParameterScaleV = 1 / math.sqrt((numContinuous + 1) * subspaceDimension)
         self.lastGradientLogs = UNCONVERGED_GRADIENTS
-        X1 = data[:, :(self.n_features - self.n_continuous)]
+        X1 = data2[:, :(self.n_features - self.n_continuous)]
 
         X3 = self.one_hot_encode(X1)
         self.numDiscrete = len(X3[0])
@@ -232,9 +232,9 @@ class LogisticModel:
 
 
             #Prueba que estaba haciendo para números muy grandes en los que se pierde la precisión
-            # log_p = np.log(p)
+            log_p = np.log(p)
             # log_p_sum = np.sum(log_p, axis=1)
-            # return log_p_sum
+            # return abs(log_p_sum)
 
 
             return np.prod(p, axis=1)
